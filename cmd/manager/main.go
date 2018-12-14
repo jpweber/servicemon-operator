@@ -7,6 +7,7 @@ import (
 	"os"
 	"runtime"
 
+	monitoring "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/jpweber/servicemon-operator/pkg/apis"
 	"github.com/jpweber/servicemon-operator/pkg/controller"
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
@@ -74,6 +75,11 @@ func main() {
 
 	// Setup Scheme for all resources
 	if err := apis.AddToScheme(mgr.GetScheme()); err != nil {
+		log.Error(err, "")
+		os.Exit(1)
+	}
+
+	if err := monitoring.AddToScheme(mgr.GetScheme()); err != nil {
 		log.Error(err, "")
 		os.Exit(1)
 	}
