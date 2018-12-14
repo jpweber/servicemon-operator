@@ -45,17 +45,16 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// Watch for changes to primary resource ServiceMonitor
-	err = c.Watch(&source.Kind{Type: &monitoring.ServiceMonitor{}}, &handler.EnqueueRequestForObject{})
+	// Watch for changes to primary resource Service
+	err = c.Watch(&source.Kind{Type: &corev1.Service{}}, &handler.EnqueueRequestForObject{})
 	if err != nil {
 		return err
 	}
 
-	// TODO(user): Modify this to be the types you create that are owned by the primary resource
-	// Watch for changes to secondary resource Pods and requeue the owner ServiceMonitor
-	err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
+	// Watch for changes to secondary resource servicemonitors and requeue the owner Service
+	err = c.Watch(&source.Kind{Type: &monitoring.ServiceMonitor{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
-		OwnerType:    &monitoring.ServiceMonitor{},
+		OwnerType:    &corev1.Service{},
 	})
 	if err != nil {
 		return err
@@ -74,10 +73,8 @@ type ReconcileServiceMonitor struct {
 	scheme *runtime.Scheme
 }
 
-// Reconcile reads that state of the cluster for a ServiceMonitor object and makes changes based on the state read
-// and what is in the ServiceMonitor.Spec
-// TODO(user): Modify this Reconcile function to implement your Controller logic.  This example creates
-// a Pod as an example
+// Reconcile reads that state of the cluster for a Service object and makes changes based on the state read
+// and what is in the Service.Spec
 // Note:
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
@@ -85,8 +82,8 @@ func (r *ReconcileServiceMonitor) Reconcile(request reconcile.Request) (reconcil
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling ServiceMonitor")
 
-	// Fetch the ServiceMonitor instance
-	instance := &monitoring.ServiceMonitor{}
+	// Fetch the Service instance
+	instance := &corev1.Service{}
 	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -99,54 +96,70 @@ func (r *ReconcileServiceMonitor) Reconcile(request reconcile.Request) (reconcil
 		return reconcile.Result{}, err
 	}
 
-	// Define a new Pod object
-	pod := newPodForCR(instance)
+	// Only do work on service that have the "prometheus.io/probe: true" annotation
+	if instance.Annotations["prometheus.io/probe"] == "true" {
+	} else {
+		// we aren't doing anything with this service, just return without errors
+		return reconcile.Result{}, nil
+	}
+	// Define a new SeviceMonitor object
+	serviceMon := newServiceMon(instance)
 
-	// Set ServiceMonitor instance as the owner and controller
-	if err := controllerutil.SetControllerReference(instance, pod, r.scheme); err != nil {
+	// Set Service instance as the owner and controller
+	if err := controllerutil.SetControllerReference(instance, serviceMon, r.scheme); err != nil {
 		return reconcile.Result{}, err
 	}
 
-	// Check if this Pod already exists
-	found := &corev1.Pod{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, found)
+	// Check if this ServiceMonitor already exists
+	found := &monitoring.ServiceMonitor{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: serviceMon.Name, Namespace: serviceMon.Namespace}, found)
 	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating a new Pod", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name)
-		err = r.client.Create(context.TODO(), pod)
+		reqLogger.Info("Creating a new ServiceMonitor", "ServiceMonitor.Namespace", serviceMon.Namespace, "ServiceMonitor.Name", serviceMon.Name)
+		err = r.client.Create(context.TODO(), serviceMon)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
-		// Pod created successfully - don't requeue
+		// Service Monitor created successfully - don't requeue
 		return reconcile.Result{}, nil
 	} else if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	// Pod already exists - don't requeue
-	reqLogger.Info("Skip reconcile: Pod already exists", "Pod.Namespace", found.Namespace, "Pod.Name", found.Name)
+	// Service Monitor already exists - don't requeue
+	reqLogger.Info("Skip reconcile: ServiceMonitor already exists", "ServiceMonitor.Namespace", found.Namespace, "ServiceMonitor.Name", found.Name)
 	return reconcile.Result{}, nil
 }
 
-// newPodForCR returns a busybox pod with the same name/namespace as the cr
-func newPodForCR(cr *monitoring.ServiceMonitor) *corev1.Pod {
-	labels := map[string]string{
-		"app": cr.Name,
-	}
-	return &corev1.Pod{
+// newServiceMon return a new service monitor object
+func newServiceMon(svc *corev1.Service) *monitoring.ServiceMonitor {
+
+	return &monitoring.ServiceMonitor{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-pod",
-			Namespace: cr.Namespace,
-			Labels:    labels,
+			Name:      svc.Name,
+			Namespace: "monitoring",
+			Labels:    svc.Labels,
 		},
-		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{
-				{
-					Name:    "busybox",
-					Image:   "busybox",
-					Command: []string{"sleep", "3600"},
+		Spec: monitoring.ServiceMonitorSpec{
+			JobLabel:        "k8s-app",
+			TargetLabels:    []string{},
+			PodTargetLabels: []string{},
+			Endpoints: []monitoring.Endpoint{
+				monitoring.Endpoint{
+					Port:     svc.Annotations["prometheus.io/port"],
+					Path:     svc.Annotations["prometheus.io/path"],
+					Scheme:   "http",
+					Interval: "30s",
 				},
 			},
+			Selector: metav1.LabelSelector{
+				MatchLabels: svc.Labels,
+			},
+			NamespaceSelector: monitoring.NamespaceSelector{
+				Any:        false,
+				MatchNames: []string{svc.Namespace},
+			},
+			// SampleLimit: svc.Annotations["prometheus.io/sampleLimit"],
 		},
 	}
 }
