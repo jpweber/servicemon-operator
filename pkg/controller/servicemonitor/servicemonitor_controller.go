@@ -21,11 +21,6 @@ import (
 
 var log = logf.Log.WithName("controller_servicemonitor")
 
-/**
-* USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
-* business logic.  Delete these comments after modifying this file.*
- */
-
 // Add creates a new ServiceMonitor Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
@@ -141,9 +136,9 @@ func newServiceMon(svc *corev1.Service) *monitoring.ServiceMonitor {
 			Labels:    svc.Labels,
 		},
 		Spec: monitoring.ServiceMonitorSpec{
-			JobLabel:        "k8s-app",
-			TargetLabels:    []string{},
-			PodTargetLabels: []string{},
+			JobLabel:        "k8s-app",  // TODO this probably shouldn't be hardcoded
+			TargetLabels:    []string{}, // TODO need to figure out how to handle this
+			PodTargetLabels: []string{}, // TODO need to figre out how to handle this
 			Endpoints: []monitoring.Endpoint{
 				monitoring.Endpoint{
 					Port:     svc.Annotations["prometheus.io/port"],
@@ -152,6 +147,7 @@ func newServiceMon(svc *corev1.Service) *monitoring.ServiceMonitor {
 					Interval: "30s",
 				},
 			},
+			// TODO: thought/work is needed to make these more flexible
 			Selector: metav1.LabelSelector{
 				MatchLabels: svc.Labels,
 			},
