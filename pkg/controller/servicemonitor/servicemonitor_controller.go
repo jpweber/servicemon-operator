@@ -141,10 +141,11 @@ func newServiceMon(svc *corev1.Service) *monitoring.ServiceMonitor {
 			PodTargetLabels: []string{}, // TODO need to figre out how to handle this
 			Endpoints: []monitoring.Endpoint{
 				monitoring.Endpoint{
-					Port:     svc.Annotations["prometheus.io/port"],
-					Path:     svc.Annotations["prometheus.io/path"],
-					Scheme:   "http",
-					Interval: "30s",
+					Port:            svc.Annotations["prometheus.io/port"],
+					Path:            svc.Annotations["prometheus.io/path"],
+					Scheme:          "http",
+					Interval:        "30s",
+					BearerTokenFile: "/var/run/secrets/kubernetes.io/serviceaccount/token",
 				},
 			},
 			// TODO: thought/work is needed to make these more flexible
