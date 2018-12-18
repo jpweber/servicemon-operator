@@ -2,6 +2,8 @@ package servicemonitor
 
 import (
 	"context"
+	"io/ioutil"
+	"os"
 
 	monitoring "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -129,10 +131,20 @@ func (r *ReconcileServiceMonitor) Reconcile(request reconcile.Request) (reconcil
 // newServiceMon return a new service monitor object
 func newServiceMon(svc *corev1.Service) *monitoring.ServiceMonitor {
 
+	// read what namespace we are running in
+	// service monitors must always be in the same namespace as prometheus-operator
+	// and we must be running in that namespace as well.
+	file, err := os.Open("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
+	if err != nil {
+		log.Error(err, "Could not determine operator namespace")
+	}
+	defer file.Close()
+	opNameSpace, err := ioutil.ReadAll(file)
+
 	return &monitoring.ServiceMonitor{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      svc.Name,
-			Namespace: "monitoring",
+			Namespace: string(opNameSpace),
 			Labels:    svc.Labels,
 		},
 		Spec: monitoring.ServiceMonitorSpec{
