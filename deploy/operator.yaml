@@ -15,8 +15,7 @@ spec:
       serviceAccountName: servicemon-operator
       containers:
         - name: servicemon-operator
-          # Replace this with the built image name
-          image: jpweber/servicmon-operator:0.1.0
+          image: jpweber/servicemon-operator:0.1.0
           ports:
           - containerPort: 60000
             name: metrics
