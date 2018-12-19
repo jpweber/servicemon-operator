@@ -1,21 +1,23 @@
 workflow "New workflow" {
   on = "push"
-  resolves = ["dockerhub push"]
+  resolves = [
+    "docker login",
+    "GitHub Action for Docker",
+  ]
 }
 
-action "docker build" {
-  uses = "actions/docker/cli@76ff57a"
-  runs = "build -t jpweber/servicemon-operator ."
-}
-
-action "Docker Registry" {
+action "docker login" {
   uses = "actions/docker/login@76ff57a"
-  secrets = ["DOCKER_USERNAME", "DOCKER_PASSWORD"]
-  needs = ["docker build"]
+  secrets = ["DOCKER_PASSWORD", "DOCKER_USERNAME"]
 }
 
-action "dockerhub push" {
+action "docker build1" {
   uses = "actions/docker/cli@76ff57a"
-  needs = ["Docker Registry"]
-  runs = "push jpweber/servicemon-operator "
+  args = " [\"build\",\"-t\",\"jpweber/servicemon-operator\",\".\"]"
+}
+
+action "GitHub Action for Docker" {
+  uses = "actions/docker/cli@76ff57a"
+  needs = ["docker build1", "docker login"]
+  args = "[\"push\",\"jpweber/servicemon-operator\"]"
 }
