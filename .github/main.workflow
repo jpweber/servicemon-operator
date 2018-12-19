@@ -13,11 +13,12 @@ action "docker login" {
 
 action "docker build1" {
   uses = "actions/docker/cli@76ff57a"
-  args = " [\"build\",\"-t\",\"jpweber/servicemon-operator\",\".\"]"
+  args = ["build", "-t", "jpweber/servicemon-operator", "."]
 }
 
 action "GitHub Action for Docker" {
   uses = "actions/docker/cli@76ff57a"
   needs = ["docker build1", "docker login"]
-  args = "[\"push\",\"jpweber/servicemon-operator\"]"
+  args = ["push", "jpweber/servicemon-operator"]
+  secrets = ["DOCKER_PASSWORD", "DOCKER_USERNAME"]
 }
