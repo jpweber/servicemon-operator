@@ -12,8 +12,8 @@ action "docker login" {
 }
 
 action "docker build1" {
-  uses = "actions/docker/cli@76ff57a"
-  args = ["build", "-t", "jpweber/servicemon-operator", "."]
+  uses = "actions/docker/cli@master"
+  args = "build -t jpweber/servicemon-operator ."
 }
 
 action "GitHub Action for Docker" {
