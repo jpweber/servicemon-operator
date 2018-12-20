@@ -141,6 +141,9 @@ func newServiceMon(svc *corev1.Service) *monitoring.ServiceMonitor {
 	defer file.Close()
 	opNameSpace, err := ioutil.ReadAll(file)
 
+	// init Endpoint defaults
+	epd := endpointValues{}
+
 	return &monitoring.ServiceMonitor{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      svc.Name,
@@ -153,11 +156,11 @@ func newServiceMon(svc *corev1.Service) *monitoring.ServiceMonitor {
 			PodTargetLabels: []string{}, // TODO need to figre out how to handle this
 			Endpoints: []monitoring.Endpoint{
 				monitoring.Endpoint{
-					Port:            svc.Annotations["prometheus.io/port"],
-					Path:            svc.Annotations["prometheus.io/path"],
-					Scheme:          "http",
-					Interval:        "30s",
-					BearerTokenFile: "/var/run/secrets/kubernetes.io/serviceaccount/token",
+					Port:            epd.Port(svc.Annotations["prometheus.io/port"]),
+					Path:            epd.Path(svc.Annotations["prometheus.io/path"]),
+					Scheme:          epd.Scheme(svc.Annotations["prometheus.io/scheme"]),
+					Interval:        epd.ScrapeInterval(svc.Annotations["prometheus.io/interval"]),
+					BearerTokenFile: epd.BearerTokenFile(svc.Annotations["prometheus.io/bearertoken"]),
 				},
 			},
 			// TODO: thought/work is needed to make these more flexible
